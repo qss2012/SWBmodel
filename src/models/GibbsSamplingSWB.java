@@ -16,16 +16,16 @@ import java.util.stream.IntStream;
 import utility.FuncUtils;
 
 /**
- * jLDADMM: A Java package for the LDA and DMM topic models
+ * SWB: A Java package for the SWB topic model
  * 
- * Implementation of the Latent Dirichlet Allocation topic model, using
+ * Implementation of the Special Word with Background (SWB) topic model, using
  * collapsed Gibbs sampling, as described in:
  * 
- * Thomas L. Griffiths and Mark Steyvers. 2004. Finding scientific topics.
- * Proceedings of the National Academy of Sciences of the United States of
- * America, 101(Suppl 1):5228–5235.
+ * Chemudugunta, C., & Steyvers, P. S. M. (2007). Modelling General and Specific Aspects of 
+ * Documents with a Probabilistic Topic Model. In Advances in Neural Information Processing
+ * Systems 19: Proceedings of the 2006 Conference (Vol. 19, p. 241). MIT Press.
  * 
- * @author: Dat Quoc Nguyen
+ * @author: Sultan Alqahtani
  */
 
 public class GibbsSamplingSWB
