@@ -204,7 +204,7 @@ public class GibbsSamplingSWB
 			
 			//Sultan added
 			x = new double[3];
-			for (int j = 0; j <= 2; j++) {
+			for (int j = 0; j < 3; j++) {
 				x[j] = 1.0/3;
 			}
 
@@ -256,31 +256,39 @@ public class GibbsSamplingSWB
 				// Sultan added
 				int xValue = FuncUtils.nextDiscrete(x); // Sample x (x will have
 														// values 0, 1, or 2);
+				
 				if (xValue == 0) {
-					Nd0[corpus.get(i).get(j)] += 1;
-					// Increase counts
-					docTopicCount[i][topic] += 1;
-					topicWordCount[topic][corpus.get(i).get(j)] += 1;
-					sumDocTopicCount[i] += 1;
-					sumTopicWordCount[topic] += 1;
+					Nd0[corpus.get(i).get(j)] = 1;
+					Nd1[corpus.get(i).get(j)] = 0;
+					Nd2[corpus.get(i).get(j)] = 0;
+					
 				} else if (xValue == 1) {
-					Nd1[corpus.get(i).get(j)] += 1;
-					// Increase counts
-					docWordCount[i][corpus.get(i).get(j)] += 1;
-					sumDocWordCount[i] += 1;
+					Nd0[corpus.get(i).get(j)] = 0;
+					Nd1[corpus.get(i).get(j)] = 1;
+					Nd2[corpus.get(i).get(j)] = 0;
+					
 				} else if (xValue == 2) {
-					Nd2[corpus.get(i).get(j)] += 1;
-					// Increase counts
-					wordCount[i][corpus.get(i).get(j)] += 1;
-					sumWordCount[corpus.get(i).get(j)] += 1;
+					Nd0[corpus.get(i).get(j)] = 0;
+					Nd1[corpus.get(i).get(j)] = 0;
+					Nd2[corpus.get(i).get(j)] = 1;
+					
 				}
+				// Increase counts
+				docTopicCount[i][topic] += 1;
+				topicWordCount[topic][corpus.get(i).get(j)] += 1;
+				sumDocTopicCount[i] += 1;
+				sumTopicWordCount[topic] += 1;
+				// Increase counts
+				docWordCount[i][corpus.get(i).get(j)] += 1;
+				sumDocWordCount[i] += 1;
+				// Increase counts
+				wordCount[i][corpus.get(i).get(j)] += 1;
+				sumWordCount[corpus.get(i).get(j)] += 1;
+				Nd[i] += Nd0[corpus.get(i).get(j)] + Nd1[corpus.get(i).get(j)] + Nd2[corpus.get(i).get(j)];
 				xValues.add(xValue);
 				topics.add(topic);
-
-				Nd[i] += Nd0[corpus.get(i).get(j)] + Nd1[corpus.get(i).get(j)]
-						+ Nd2[corpus.get(i).get(j)];
 			}
-
+		//	System.out.println("Doc"+i+" "+Nd[i]+" "+sumDocTopicCount[i]);
 			topicAssignments.add(topics);
 			// Sultan added
 			wordTypeAssignments.add(xValues);
@@ -339,8 +347,9 @@ public class GibbsSamplingSWB
 
 		for (int iter = 1; iter <= numIterations; iter++) {
 
-			System.out.println("\tSampling iteration: " + (iter));
-		//	System.out.println("\t\tPerplexity: " + computePerplexity());
+	//		System.out.println("\tSampling iteration: " + (iter));
+			if((iter%10) == 0)
+				System.out.println(computePerplexity());
 
 			sampleInSingleIteration();
 
@@ -438,28 +447,28 @@ public class GibbsSamplingSWB
 		}
 	}
 
-//	public double computePerplexity() {
-//		double logliCorpus = 0.0;
-//		for (int dIndex = 0; dIndex < numDocuments; dIndex++) {
-//			int docSize = corpus.get(dIndex).size();
-//			double logliDoc = 0.0;
-//			for (int wIndex = 0; wIndex < docSize; wIndex++) {
-//				int word = corpus.get(dIndex).get(wIndex);
-//				double likeWord = 0.0;
-//				for (int tIndex = 0; tIndex < numTopics; tIndex++) {
-//					likeWord += ((docTopicCount[dIndex][tIndex] + alpha) / (sumDocTopicCount[dIndex] + alphaSum))
-//							* ((topicWordCount[tIndex][word] + betas[0]) / (sumTopicWordCount[tIndex] + betaSum[0]));
-//				}
-//				logliDoc += Math.log(likeWord);
-//			}
-//			logliCorpus += logliDoc;
-//		}
-//		double perplexity = Math.exp(-1.0 * logliCorpus / numWordsInCorpus);
-//		if (perplexity < 0)
-//			throw new RuntimeException("Illegal perplexity value: "
-//					+ perplexity);
-//		return perplexity;
-//	}
+	public double computePerplexity() {
+		double logliCorpus = 0.0;
+		for (int dIndex = 0; dIndex < numDocuments; dIndex++) {
+			int docSize = corpus.get(dIndex).size();
+			double logliDoc = 0.0;
+			for (int wIndex = 0; wIndex < docSize; wIndex++) {
+				int word = corpus.get(dIndex).get(wIndex);
+				double likeWord = 0.0;
+				for (int tIndex = 0; tIndex < numTopics; tIndex++) {
+					likeWord += ((docTopicCount[dIndex][tIndex] + alpha) / (sumDocTopicCount[dIndex] + alphaSum))
+							* ((topicWordCount[tIndex][word] + betas[0]) / (sumTopicWordCount[tIndex] + betaSum[0]));
+				}
+				logliDoc += Math.log(likeWord);
+			}
+			logliCorpus += logliDoc;
+		}
+		double perplexity = Math.exp(-1.0 * logliCorpus / numWordsInCorpus);
+		if (perplexity < 0)
+			throw new RuntimeException("Illegal perplexity value: "
+					+ perplexity);
+		return perplexity;
+	}
 
 	public void writeParameters()
 		throws IOException
@@ -633,7 +642,7 @@ public class GibbsSamplingSWB
 		double gamma = 0.3;
 		int iteration = 1000;
 		int topWords = 100;
-		int numTopics = 25;
+		int numTopics = 100;
 		
 		GibbsSamplingSWB swb = new GibbsSamplingSWB(pathToCorpus, numTopics, alpha,
 				betas,gamma, iteration, topWords, "testSWB");
