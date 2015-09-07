@@ -89,12 +89,8 @@ public class GibbsSamplingSWB
 		// Nd2 = Nd - ( Nd0 + Nd1)
 		public int Nd2[];  
 		
-		// Sultan added
-		public int wordType[];
 		
-		// Sultan added
-		// Double array used to sample x -> x is sampled from a document-specific multinomial LEMDA, which in turn has a symmetric Dirichlet prior, GAMMA
-		public double x[];
+	
 
 	// Double array used to sample a topic
 	public double[] multiPros;
@@ -195,21 +191,13 @@ public class GibbsSamplingSWB
 			
 			//Sultan added
 			Nd = new int[numDocuments];
-			Nd0 = new int[vocabularySize];
-			Nd1 = new int[vocabularySize];
-			Nd2 = new int[vocabularySize];
+			Nd0 = new int[numDocuments];
+			Nd1 = new int[numDocuments];
+			Nd2 = new int[numDocuments];
 			
-			//Sultan 
-			wordType = new int[vocabularySize];
 			
-			//Sultan added
-			x = new double[3];
-			for (int j = 0; j < 3; j++) {
-				x[j] = 1.0/3;
-			}
-
-		multiPros = new double[numTopics];
-		for (int i = 0; i < numTopics; i++) {
+		multiPros = new double[numTopics * 3];
+		for (int i = 0; i < numTopics * 3; i++) {
 			multiPros[i] = 1.0 / numTopics;
 		}
 
@@ -230,9 +218,9 @@ public class GibbsSamplingSWB
 		System.out.println("Number of top topical words: " + topWords);
 
 		tAssignsFilePath = pathToTAfile;
-		if (tAssignsFilePath.length() > 0)
-			initialize(tAssignsFilePath);
-		else
+//		if (tAssignsFilePath.length() > 0)
+//			initialize(tAssignsFilePath);
+//		else
 			initialize();
 	}
 
@@ -243,102 +231,46 @@ public class GibbsSamplingSWB
 		System.out.println("Randomly initializing topic assignments ...");
 
 		topicAssignments = new ArrayList<List<Integer>>();
-		// Sultan added
-		wordTypeAssignments = new ArrayList<List<Integer>>();
 
 		for (int i = 0; i < numDocuments; i++) {
 			List<Integer> topics = new ArrayList<Integer>();
-			// Sultan added
-			List<Integer> xValues = new ArrayList<Integer>();
 			int docSize = corpus.get(i).size();
+			// Sultan added
 			for (int j = 0; j < docSize; j++) {
-				int topic = FuncUtils.nextDiscrete(multiPros); // Sample a topic
-				// Sultan added
-				int xValue = FuncUtils.nextDiscrete(x); // Sample x (x will have
-														// values 0, 1, or 2);
+				int subtopic = FuncUtils.nextDiscrete(multiPros); // Sample a topic
+				int wordId = corpus.get(i).get(j);
 				
-				if (xValue == 0) {
-					Nd0[corpus.get(i).get(j)] = 1;
-					Nd1[corpus.get(i).get(j)] = 0;
-					Nd2[corpus.get(i).get(j)] = 0;
-					
-				} else if (xValue == 1) {
-					Nd0[corpus.get(i).get(j)] = 0;
-					Nd1[corpus.get(i).get(j)] = 1;
-					Nd2[corpus.get(i).get(j)] = 0;
-					
-				} else if (xValue == 2) {
-					Nd0[corpus.get(i).get(j)] = 0;
-					Nd1[corpus.get(i).get(j)] = 0;
-					Nd2[corpus.get(i).get(j)] = 1;
-					
+				int topic = subtopic % numTopics;
+				
+				if(topic == subtopic){
+					Nd0[i] += 1;
+					// Increase counts
+					topicWordCount[topic][wordId] += 1;
+					sumTopicWordCount[topic] += 1;
+				}else if((subtopic % numTopics) == 1){
+					Nd1[i] += 1;
+					// Increase counts
+					docWordCount[i][wordId] += 1;
+					sumDocWordCount[i] += 1;
+				}else if((subtopic % numTopics) == 2){
+					Nd2[i] += 1;
+					// Increase counts
+					wordCount[i][wordId] += 1;
+					sumWordCount[wordId] += 1;
 				}
 				// Increase counts
 				docTopicCount[i][topic] += 1;
-				topicWordCount[topic][corpus.get(i).get(j)] += 1;
 				sumDocTopicCount[i] += 1;
-				sumTopicWordCount[topic] += 1;
-				// Increase counts
-				docWordCount[i][corpus.get(i).get(j)] += 1;
-				sumDocWordCount[i] += 1;
-				// Increase counts
-				wordCount[i][corpus.get(i).get(j)] += 1;
-				sumWordCount[corpus.get(i).get(j)] += 1;
-				Nd[i] += Nd0[corpus.get(i).get(j)] + Nd1[corpus.get(i).get(j)] + Nd2[corpus.get(i).get(j)];
-				xValues.add(xValue);
-				topics.add(topic);
+				
+				topics.add(subtopic);
 			}
-		//	System.out.println("Doc"+i+" "+Nd[i]+" "+sumDocTopicCount[i]);
+			Nd[i] += Nd0[i] + Nd1[i] + Nd2[i];
+
 			topicAssignments.add(topics);
-			// Sultan added
-			wordTypeAssignments.add(xValues);
-		}
 
-	}
-
-	/**
-	 * Initialize topic assignments from a given file
-	 */
-	public void initialize(String pathToTopicAssignmentFile)
-	{
-		System.out.println("Reading topic-assignment file: "
-			+ pathToTopicAssignmentFile);
-
-		topicAssignments = new ArrayList<List<Integer>>();
-
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(pathToTopicAssignmentFile));
-			int docID = 0;
-			int numWords = 0;
-			for (String line; (line = br.readLine()) != null;) {
-				String[] strTopics = line.trim().split("\\s+");
-				List<Integer> topics = new ArrayList<Integer>();
-				for (int j = 0; j < strTopics.length; j++) {
-					int topic = new Integer(strTopics[j]);
-					// Increase counts
-					docTopicCount[docID][topic] += 1;
-					topicWordCount[topic][corpus.get(docID).get(j)] += 1;
-					sumDocTopicCount[docID] += 1;
-					sumTopicWordCount[topic] += 1;
-
-					topics.add(topic);
-					numWords++;
-				}
-				topicAssignments.add(topics);
-				docID++;
-			}
-
-			if ((docID != numDocuments) || (numWords != numWordsInCorpus)) {
-				System.out
-					.println("The topic modeling corpus and topic assignment file are not consistent!!!");
-				throw new Exception();
-			}
-		}
-		catch (Exception e) {
-			e.printStackTrace();
 		}
 	}
+
 
 	public void inference()
 		throws IOException
@@ -347,9 +279,9 @@ public class GibbsSamplingSWB
 
 		for (int iter = 1; iter <= numIterations; iter++) {
 
-	//		System.out.println("\tSampling iteration: " + (iter));
-			if((iter%10) == 0)
-				System.out.println(computePerplexity());
+			System.out.println("\tSampling iteration: " + (iter));
+//			if((iter%10) == 0)
+//				System.out.println(computePerplexity());
 
 			sampleInSingleIteration();
 
@@ -374,101 +306,99 @@ public class GibbsSamplingSWB
 	public void sampleInSingleIteration() {
 		for (int dIndex = 0; dIndex < numDocuments; dIndex++) {
 			int docSize = corpus.get(dIndex).size();
+			// Decrease count
+			Nd[dIndex] -= 1;
 			for (int wIndex = 0; wIndex < docSize; wIndex++) {
 				// Get current word and its topic
-				int topic = topicAssignments.get(dIndex).get(wIndex);
+				int subtopic = topicAssignments.get(dIndex).get(wIndex);
 				int word = corpus.get(dIndex).get(wIndex);
-				// Sultan added
-				int xValue = wordTypeAssignments.get(dIndex).get(wIndex);
-				Nd[dIndex] -= 1;
-				if (xValue == 0) {
-					Nd0[word] -= 1;
-					docTopicCount[dIndex][topic] -= 1;
+				
+				int topic = subtopic % numTopics;
+				
+				// Decrease counts
+				docTopicCount[dIndex][topic] -= 1;
+				sumDocTopicCount[dIndex] -= 1;
+				
+				if (topic == subtopic) {
+					Nd0[dIndex] -= 1;
 					topicWordCount[topic][word] -= 1;
-					sumDocTopicCount[dIndex] -= 1;
 					sumTopicWordCount[topic] -= 1;
-					// Sample x and topic
-					for (int wIndex_ = 0; wIndex_ <= 2; wIndex_++) {
-						x[wIndex_] = (Nd0[word] + gamma) / (Nd[dIndex] + 3 * gamma);
-						for (int tIndex = 0; tIndex < numTopics; tIndex++) {
-							multiPros[tIndex] = ((Nd0[word] + gamma) / (Nd[dIndex] + 3 * gamma))
-									* ((docTopicCount[dIndex][tIndex] + alpha) / (sumDocTopicCount[dIndex] + alphaSum))
-									* ((topicWordCount[tIndex][word] + betas[0]) / (sumTopicWordCount[tIndex] + betaSum[0]));
-						}
-					}
-					xValue = FuncUtils.nextDiscrete(x);
-					topic = FuncUtils.nextDiscrete(multiPros);
-					// Increase counts
-					Nd0[word] += 1;
-					docTopicCount[dIndex][topic] += 1;
-					topicWordCount[topic][word] += 1;
-					sumDocTopicCount[dIndex] += 1;
-					sumTopicWordCount[topic] += 1;
-					// Update x assignments
-					wordTypeAssignments.get(dIndex).set(wIndex, xValue);
-					// Update topic assignments
-					topicAssignments.get(dIndex).set(wIndex, topic);
-				}else if (xValue == 1) {
+					
+				}else if((subtopic % numTopics) == 1){
 					// Decrease counts
-					Nd1[word] -= 1;
+					Nd1[dIndex] -= 1;
 					docWordCount[dIndex][word] -= 1;
 					sumDocWordCount[dIndex] -= 1;
-					// Sample x
-					for (int wIndex_ = 0; wIndex_ <= 2; wIndex_++) {
-						x[wIndex_] = ((Nd1[word] + gamma) / (Nd[dIndex] + 3 * gamma))
-								* ((docWordCount[dIndex][word] + betas[1]) / (sumDocWordCount[dIndex] + betaSum[1]));
-					}
-					xValue = FuncUtils.nextDiscrete(x);
-					// Increase counts
-					Nd1[word] += 1;
-					docWordCount[dIndex][word] += 1;
-					sumDocWordCount[dIndex] += 1;
-					// Update x assignments
-					wordTypeAssignments.get(dIndex).set(wIndex, xValue);
-				} else  if (xValue == 2) {
+
+				}else if((subtopic % numTopics) == 2){
 					// Decrease counts
-					Nd2[word] -= 1;
+					Nd2[dIndex] -= 1;
 					wordCount[dIndex][word] -= 1;
 					sumWordCount[word] -= 1;
-					// Sample x
-					for (int wIndex_ = 0; wIndex_ <= 2; wIndex_++) {
-						x[wIndex_] = ((Nd2[word] + gamma) / (Nd[dIndex] + 3 * gamma))
-								* ((wordCount[dIndex][word] + betas[2]) / (sumDocWordCount[dIndex] + betaSum[2]));
-					}
-					xValue = FuncUtils.nextDiscrete(x);
-					// Increase counts
-					Nd2[word] += 1;
+				}
+				
+				// Sample a topic
+				for (int tIndex = 0; tIndex < numTopics; tIndex++) {
+					multiPros[tIndex+numTopics] = ((Nd0[dIndex] + gamma) / (Nd[dIndex] + 3 * gamma))
+							* ((docTopicCount[dIndex][tIndex] + alpha) / (sumDocTopicCount[dIndex] + alphaSum))
+							* ((topicWordCount[tIndex][word] + betas[0]) / (sumTopicWordCount[tIndex] + betaSum[0]));
+					
+					multiPros[tIndex] = ((Nd1[dIndex] + gamma) / (Nd[dIndex] + 3 * gamma))
+							* ((docWordCount[dIndex][word] + betas[1]) / (sumDocWordCount[dIndex] + betaSum[1]));
+					
+					multiPros[tIndex] = ((Nd2[dIndex] + gamma) / (Nd[dIndex] + 3 * gamma))
+							* ((wordCount[dIndex][word] + betas[2]) / (sumDocWordCount[dIndex] + betaSum[2]));
+				}
+				
+				subtopic = FuncUtils.nextDiscrete(multiPros);
+				topic = subtopic % numTopics;
+				// Increase counts
+				docTopicCount[dIndex][topic] -= 1;
+				sumDocTopicCount[dIndex] -= 1;
+				
+				if(topic == subtopic){
+					Nd0[dIndex] += 1;
+					topicWordCount[topic][word] += 1;
+					sumTopicWordCount[topic] += 1;
+				}else if((subtopic % numTopics) == 1){
+					Nd1[dIndex] += 1;
+					docWordCount[dIndex][word] += 1;
+					sumDocWordCount[dIndex] += 1;
+				}
+				else if((subtopic % numTopics) ==2){
+					Nd2[dIndex] += 1;
 					wordCount[dIndex][word] += 1;
 					sumWordCount[word] += 1;
-					// Update x assignments
-					wordTypeAssignments.get(dIndex).set(wIndex, xValue);
 				}
+				// Update topic assignments
+				topicAssignments.get(dIndex).set(wIndex, subtopic);
 			}
+			Nd[dIndex] += 1;
 		}
 	}
 
-	public double computePerplexity() {
-		double logliCorpus = 0.0;
-		for (int dIndex = 0; dIndex < numDocuments; dIndex++) {
-			int docSize = corpus.get(dIndex).size();
-			double logliDoc = 0.0;
-			for (int wIndex = 0; wIndex < docSize; wIndex++) {
-				int word = corpus.get(dIndex).get(wIndex);
-				double likeWord = 0.0;
-				for (int tIndex = 0; tIndex < numTopics; tIndex++) {
-					likeWord += ((docTopicCount[dIndex][tIndex] + alpha) / (sumDocTopicCount[dIndex] + alphaSum))
-							* ((topicWordCount[tIndex][word] + betas[0]) / (sumTopicWordCount[tIndex] + betaSum[0]));
-				}
-				logliDoc += Math.log(likeWord);
-			}
-			logliCorpus += logliDoc;
-		}
-		double perplexity = Math.exp(-1.0 * logliCorpus / numWordsInCorpus);
-		if (perplexity < 0)
-			throw new RuntimeException("Illegal perplexity value: "
-					+ perplexity);
-		return perplexity;
-	}
+//	public double computePerplexity() {
+//		double logliCorpus = 0.0;
+//		for (int dIndex = 0; dIndex < numDocuments; dIndex++) {
+//			int docSize = corpus.get(dIndex).size();
+//			double logliDoc = 0.0;
+//			for (int wIndex = 0; wIndex < docSize; wIndex++) {
+//				int word = corpus.get(dIndex).get(wIndex);
+//				double likeWord = 0.0;
+//				for (int tIndex = 0; tIndex < numTopics; tIndex++) {
+//					likeWord += ((docTopicCount[dIndex][tIndex] + alpha) / (sumDocTopicCount[dIndex] + alphaSum))
+//							* ((topicWordCount[tIndex][word] + betas[0]) / (sumTopicWordCount[tIndex] + betaSum[0]));
+//				}
+//				logliDoc += Math.log(likeWord);
+//			}
+//			logliCorpus += logliDoc;
+//		}
+//		double perplexity = Math.exp(-1.0 * logliCorpus / numWordsInCorpus);
+//		if (perplexity < 0)
+//			throw new RuntimeException("Illegal perplexity value: "
+//					+ perplexity);
+//		return perplexity;
+//	}
 
 	public void writeParameters()
 		throws IOException
@@ -642,7 +572,7 @@ public class GibbsSamplingSWB
 		double gamma = 0.3;
 		int iteration = 1000;
 		int topWords = 100;
-		int numTopics = 100;
+		int numTopics = 20;
 		
 		GibbsSamplingSWB swb = new GibbsSamplingSWB(pathToCorpus, numTopics, alpha,
 				betas,gamma, iteration, topWords, "testSWB");
