@@ -247,12 +247,13 @@ public class GibbsSamplingSWB
 					// Increase counts
 					topicWordCount[topic][wordId] += 1;
 					sumTopicWordCount[topic] += 1;
-				}else if((subtopic > topic) && (subtopic == (subtopic%(numTopics*2)))){
+				} else if ((subtopic > topic)
+						&& (subtopic == (subtopic % (numTopics * 2)))) {
 					Nd1[i] += 1;
 					// Increase counts
 					docWordCount[i][wordId] += 1;
 					sumDocWordCount[i] += 1;
-				}else {
+				} else {
 					Nd2[i] += 1;
 					// Increase counts
 					wordCount[i][wordId] += 1;
@@ -306,14 +307,14 @@ public class GibbsSamplingSWB
 		for (int dIndex = 0; dIndex < numDocuments; dIndex++) {
 			int docSize = corpus.get(dIndex).size();
 			// Decrease count
-			
+			Nd[dIndex] -= 1;
 			for (int wIndex = 0; wIndex < docSize; wIndex++) {
 				// Get current word and its topic
 				int subtopic = topicAssignments.get(dIndex).get(wIndex);
 				int word = corpus.get(dIndex).get(wIndex);
 				
 				int topic = subtopic % numTopics;
-				Nd[dIndex] -= 1;
+				
 				// Decrease counts
 				docTopicCount[dIndex][topic] -= 1;
 				sumDocTopicCount[dIndex] -= 1;
@@ -351,7 +352,7 @@ public class GibbsSamplingSWB
 				
 				subtopic = FuncUtils.nextDiscrete(multiPros);
 				topic = subtopic % numTopics;
-				Nd[dIndex] += 1;
+			
 				// Increase counts
 				docTopicCount[dIndex][topic] -= 1;
 				sumDocTopicCount[dIndex] -= 1;
@@ -372,7 +373,7 @@ public class GibbsSamplingSWB
 				// Update topic assignments
 				topicAssignments.get(dIndex).set(wIndex, subtopic);
 			}
-			
+			Nd[dIndex] += 1;
 		}
 	}
 
