@@ -86,12 +86,8 @@ public class GibbsSamplingSWB
 		// Number of words in document d assigned to special words
 		public int Nd1[];
 		// Number of words in document d assigned to  background component
-		// Nd2 = Nd - ( Nd0 + Nd1)
-		public int Nd2[];  
+	    public int Nd2[];  
 		
-		
-	
-
 	// Double array used to sample a topic
 	public double[] multiPros;
 
@@ -241,31 +237,32 @@ public class GibbsSamplingSWB
 				int wordId = corpus.get(i).get(j);
 				
 				int topic = subtopic % numTopics;
-				
-				if(subtopic == topic){
-					Nd0[i] += 1;
-					// Increase counts
-					topicWordCount[topic][wordId] += 1;
-					sumTopicWordCount[topic] += 1;
-				} else if ((subtopic > topic)
-						&& (subtopic == (subtopic % (numTopics * 2)))) {
-					Nd1[i] += 1;
-					// Increase counts
-					docWordCount[i][wordId] += 1;
-					sumDocWordCount[i] += 1;
-				} else {
-					Nd2[i] += 1;
-					// Increase counts
-					wordCount[i][wordId] += 1;
-					sumWordCount[wordId] += 1;
-				}
 				// Increase counts
 				docTopicCount[i][topic] += 1;
 				sumDocTopicCount[i] += 1;
 				
+				if(subtopic == topic){ // latent-topic distribution
+					// Increase counts
+					Nd0[i] += 1;
+					topicWordCount[topic][wordId] += 1;
+					sumTopicWordCount[topic] += 1;
+				} else if ((subtopic > topic)
+						&& (subtopic == (subtopic % (numTopics * 2)))) { // special-word distribution
+					// Increase counts
+					Nd1[i] += 1;
+					docWordCount[i][wordId] += 1;
+					sumDocWordCount[i] += 1;
+				} else { // background distribution
+					// Increase counts
+					Nd2[i] += 1;
+					wordCount[i][wordId] += 1;
+					sumWordCount[wordId] += 1;
+				}
+				
 				topics.add(subtopic);
 			}
 			Nd[i] += Nd0[i] + Nd1[i] + Nd2[i];
+//			System.out.println("doc size=> LT:["+Nd0[i]+"] SW["+Nd1[i]+"] BK["+Nd2[i]+"] = ["+Nd[i]+"]");
 
 			topicAssignments.add(topics);
 
@@ -306,30 +303,26 @@ public class GibbsSamplingSWB
 	public void sampleInSingleIteration() {
 		for (int dIndex = 0; dIndex < numDocuments; dIndex++) {
 			int docSize = corpus.get(dIndex).size();
-			// Decrease count
-			Nd[dIndex] -= 1;
 			for (int wIndex = 0; wIndex < docSize; wIndex++) {
 				// Get current word and its topic
-				int subtopic = topicAssignments.get(dIndex).get(wIndex);
 				int word = corpus.get(dIndex).get(wIndex);
-				
+				int subtopic = topicAssignments.get(dIndex).get(wIndex);
 				int topic = subtopic % numTopics;
 				
 				// Decrease counts
 				docTopicCount[dIndex][topic] -= 1;
 				sumDocTopicCount[dIndex] -= 1;
+				Nd[dIndex] -= 1;
 				
 				if (topic == subtopic) {
 					Nd0[dIndex] -= 1;
 					topicWordCount[topic][word] -= 1;
-					sumTopicWordCount[topic] -= 1;
-					
+					sumTopicWordCount[topic] -= 1;	
 				}else if((subtopic > topic) && (subtopic == (subtopic%(numTopics*2)))){
 					// Decrease counts
 					Nd1[dIndex] -= 1;
 					docWordCount[dIndex][word] -= 1;
 					sumDocWordCount[dIndex] -= 1;
-
 				}else{
 					// Decrease counts
 					Nd2[dIndex] -= 1;
@@ -346,7 +339,7 @@ public class GibbsSamplingSWB
 					multiPros[tIndex+numTopics] = ((Nd1[dIndex] + gamma) / (Nd[dIndex] + 3 * gamma))
 							* ((docWordCount[dIndex][word] + betas[1]) / (sumDocWordCount[dIndex] + betaSum[1]));
 					
-					multiPros[tIndex+numTopics*2] = ((Nd2[dIndex] + gamma) / (Nd[dIndex] + 3 * gamma))
+					multiPros[tIndex+(numTopics*2)] = ((Nd2[dIndex] + gamma) / (Nd[dIndex] + 3 * gamma))
 							* ((wordCount[dIndex][word] + betas[2]) / (sumDocWordCount[dIndex] + betaSum[2]));
 				}
 				
@@ -356,7 +349,7 @@ public class GibbsSamplingSWB
 				// Increase counts
 				docTopicCount[dIndex][topic] -= 1;
 				sumDocTopicCount[dIndex] -= 1;
-				
+				Nd[dIndex] += 1;
 				if(topic == subtopic){
 					Nd0[dIndex] += 1;
 					topicWordCount[topic][word] += 1;
@@ -373,7 +366,6 @@ public class GibbsSamplingSWB
 				// Update topic assignments
 				topicAssignments.get(dIndex).set(wIndex, subtopic);
 			}
-			Nd[dIndex] += 1;
 		}
 	}
 
@@ -467,18 +459,33 @@ public class GibbsSamplingSWB
 		writer.close();
 	}
 
-	public void writeTopTopicalWords()
-		throws IOException
-	{
+	public void writeTopTopicalWords() throws IOException {
 		BufferedWriter writer = new BufferedWriter(new FileWriter(folderPath
-			+ expName + ".topWords"));
+				+ expName + ".topWords"));
 
 		for (int tIndex = 0; tIndex < numTopics; tIndex++) {
 			writer.write("Topic" + new Integer(tIndex) + ":");
 
 			Map<Integer, Double> wordCount = new TreeMap<Integer, Double>();
 			for (int wIndex = 0; wIndex < vocabularySize; wIndex++) {
-/*Need to be addressed*/double prob = (topicWordCount[tIndex][wIndex] + betas[0]) / (sumTopicWordCount[tIndex] + betaSum[0]);
+				/*
+				 * double prob = ((Nd0[dIndex] + gamma) / (Nd[dIndex] + 3 *
+				 * gamma)) ((docTopicCount[dIndex][tIndex] + alpha) /
+				 * (sumDocTopicCount[dIndex] + alphaSum))
+				 * ((topicWordCount[tIndex][wIndex] + betas[0]) /
+				 * (sumTopicWordCount[tIndex] + betaSum[0]));
+				 * 
+				 * prob += ((Nd1[dIndex] + gamma) / (Nd[dIndex] + 3 * gamma))
+				 * ((docWordCount[dIndex][wIndex] + betas[1]) /
+				 * (sumDocWordCount[dIndex] + betaSum[1]));
+				 * 
+				 * prob += ((Nd2[dIndex] + gamma) / (Nd[dIndex] + 3 * gamma))
+				 * ((wordCount[dIndex][wIndex] + betas[2]) /
+				 * (sumDocWordCount[dIndex] + betaSum[2]));
+				 */
+
+				double prob = (topicWordCount[tIndex][wIndex] + betas[0])
+						/ (sumTopicWordCount[tIndex] + betaSum[0]);
 				wordCount.put(wIndex, prob);
 			}
 			wordCount = FuncUtils.sortByValueDescending(wordCount);
@@ -489,13 +496,13 @@ public class GibbsSamplingSWB
 				if (count < topWords) {
 					writer.write(" " + id2WordVocabulary.get(index));
 					count += 1;
-				}
-				else {
+				} else {
 					writer.write("\n\n");
 					break;
 				}
 			}
 		}
+
 		writer.close();
 	}
 
